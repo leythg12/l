@@ -2,17 +2,8 @@
 
 import { useEffect, useState } from "react";
 import ProductCard from "@/components/ProductCard";
+import { getProducts, Product } from "@/lib/firestore";
 import { Search } from "lucide-react";
-
-interface Product {
-  id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  image: string | null;
-  category: string;
-  stock: number;
-}
 
 const CATEGORIES = ["all", "chocolate", "gummy", "lollipop", "chewy", "sour", "candy"];
 
@@ -23,13 +14,10 @@ export default function ShopPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetch("/api/products")
-      .then((r) => r.json())
-      .then((data) => {
-        setProducts(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    getProducts(true)
+      .then(setProducts)
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = products.filter((p) => {
@@ -43,7 +31,6 @@ export default function ShopPage() {
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
-      {/* Hero */}
       <div className="text-center mb-10">
         <h1 className="text-4xl font-bold text-pink-700 mb-2">Welcome to CandyShop 🍬</h1>
         <p className="text-gray-500 text-lg">
@@ -51,7 +38,6 @@ export default function ShopPage() {
         </p>
       </div>
 
-      {/* Search & Filter */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -80,7 +66,6 @@ export default function ShopPage() {
         </div>
       </div>
 
-      {/* Products Grid */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -100,7 +85,6 @@ export default function ShopPage() {
         </div>
       )}
 
-      {/* Info Banner */}
       <div className="mt-12 bg-yellow-50 border border-yellow-200 rounded-2xl p-5 text-center">
         <p className="text-yellow-800 font-medium">
           💵 Cash on Delivery only &nbsp;|&nbsp; All prices in SAR &nbsp;|&nbsp; 🚚 Delivered to your door

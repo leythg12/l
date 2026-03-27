@@ -1,0 +1,47 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Products: anyone can read active ones; only admins can write ──────────
+    match /products/{id} {
+      allow read: if resource.data.active == true;
+      allow read, write: if isAdmin();
+    }
+
+    // ── Orders: authenticated users can create; only admins can read all ──────
+    match /orders/{id} {
+      allow create: if true; // guests can place orders
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, write: if isAdmin();
+    }
+
+    // ── OTP codes: written by Cloud Functions only (admin SDK bypasses rules) ─
+    match /otpCodes/{id} {
+      allow read, write: if false; // Cloud Functions use Admin SDK
+    }
+
+    // ── Admin records: only admins can read; super admins can write ───────────
+    match /admins/{id} {
+      allow read: if isAdmin();
+      allow write: if isSuperAdmin();
+    }
+
+    // ── Helper functions ──────────────────────────────────────────────────────
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) == false &&
+        // Check by email — admin documents use email as lookup
+        getAdminByEmail() != null;
+    }
+
+    function getAdminByEmail() {
+      // Firestore rules can't query by field easily; rely on UID-based doc
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+  }
+}

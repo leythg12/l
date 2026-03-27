@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { getAdminByEmail } from "@/lib/firestore";
 import { Loader2 } from "lucide-react";
 
 export default function AdminLoginPage() {
@@ -16,16 +19,19 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-      router.replace("/admin");
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      // Verify the Firebase user is actually an admin in Firestore
+      const rec = await getAdminByEmail(cred.user.email!);
+      if (!rec) {
+        await auth.signOut();
+        throw new Error("No admin account found for this email.");
+      }
+      router.replace("/admin/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const msg = err instanceof Error ? err.message : "Login failed";
+      setError(msg.includes("invalid-credential") || msg.includes("wrong-password")
+        ? "Invalid email or password."
+        : msg);
     } finally {
       setLoading(false);
     }

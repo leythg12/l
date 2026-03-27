@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
+import { AuthProvider } from "@/lib/auth-context";
 import { CartProvider } from "@/components/CartContext";
 
 export const metadata: Metadata = {
@@ -12,9 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-pink-50 font-sans">
-        <SessionProvider>
+        <AuthProvider>
           <CartProvider>{children}</CartProvider>
-        </SessionProvider>
+        </AuthProvider>
       </body>
     </html>
   );

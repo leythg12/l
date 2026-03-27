@@ -2,20 +2,22 @@
 
 import Navbar from "@/components/Navbar";
 import { useCart } from "@/components/CartContext";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/lib/auth-context";
+import { createOrder } from "@/lib/firestore";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Phone, User, CheckCircle } from "lucide-react";
+import { formatOrderMessage } from "@/lib/snapchat-utils";
 
 export default function CheckoutPage() {
   const { items, total, clearCart } = useCart();
-  const { data: session } = useSession();
+  const { user } = useAuth();
   const router = useRouter();
 
   const [form, setForm] = useState({
-    customerName: session?.user?.name || "",
-    phone: "",
+    customerName: user?.displayName || "",
+    phone: user?.phoneNumber || "",
     deliveryAddress: "",
     notes: "",
   });
@@ -23,6 +25,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [snapMessage, setSnapMessage] = useState("");
 
   if (items.length === 0 && !success) {
     return (
@@ -48,8 +51,18 @@ export default function CheckoutPage() {
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Order Placed!</h2>
           <p className="text-gray-500 mb-1">Order #{orderId.slice(-8).toUpperCase()}</p>
           <p className="text-gray-500 text-sm mb-6">
-            Pay with cash upon delivery. We&apos;ll be in touch soon!
+            Pay cash upon delivery. We&apos;ll be in touch!
           </p>
+          {snapMessage && (
+            <details className="text-left bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6 text-xs">
+              <summary className="cursor-pointer font-medium text-yellow-700">
+                📋 Order details (for admin — copy to Snapchat @abelgirault)
+              </summary>
+              <pre className="mt-2 whitespace-pre-wrap text-yellow-800 font-mono leading-relaxed">
+                {snapMessage}
+              </pre>
+            </details>
+          )}
           <Link
             href="/"
             className="inline-block bg-pink-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-pink-700 transition-colors"
@@ -72,23 +85,37 @@ export default function CheckoutPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName: form.customerName,
-          phone: form.phone || null,
-          deliveryAddress: form.deliveryAddress,
-          notes: form.notes || null,
-          items: items.map((i) => ({ productId: i.id, quantity: i.quantity })),
-        }),
+      const orderItems = items.map((i) => ({
+        productId: i.id,
+        productName: i.name,
+        quantity: i.quantity,
+        price: i.price,
+      }));
+
+      const id = await createOrder({
+        userId: user?.uid || null,
+        customerName: form.customerName,
+        phone: form.phone || "",
+        deliveryAddress: form.deliveryAddress,
+        notes: form.notes || "",
+        status: "pending",
+        totalAmount: total,
+        notifiedSnap: false,
+        items: orderItems,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Order failed");
+      const msg = formatOrderMessage({
+        id,
+        customerName: form.customerName,
+        phone: form.phone,
+        deliveryAddress: form.deliveryAddress,
+        totalAmount: total,
+        items: orderItems,
+      });
 
       clearCart();
-      setOrderId(data.order.id);
+      setOrderId(id);
+      setSnapMessage(msg);
       setSuccess(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -104,15 +131,12 @@ export default function CheckoutPage() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Checkout</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Order Summary */}
           <div className="bg-white rounded-2xl border border-pink-100 p-4">
             <h2 className="font-semibold text-gray-700 mb-3 text-sm">Order Summary</h2>
             <div className="space-y-1">
               {items.map((item) => (
                 <div key={item.id} className="flex justify-between text-sm text-gray-600">
-                  <span>
-                    {item.name} × {item.quantity}
-                  </span>
+                  <span>{item.name} × {item.quantity}</span>
                   <span>{(item.price * item.quantity).toFixed(2)} SAR</span>
                 </div>
               ))}
@@ -124,7 +148,6 @@ export default function CheckoutPage() {
             <p className="text-xs text-green-600 mt-1 font-medium">💵 Cash on Delivery</p>
           </div>
 
-          {/* Customer Info */}
           <div className="bg-white rounded-2xl border border-pink-100 p-4 space-y-3">
             <h2 className="font-semibold text-gray-700 text-sm">Your Details</h2>
 
