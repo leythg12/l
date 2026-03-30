@@ -1,6 +1,5 @@
 /**
- * Firestore helper functions — replaces the old Prisma/API-route layer.
- * All operations run client-side using the Firebase JS SDK.
+ * Firestore helpers — all client-side via Firebase JS SDK.
  */
 
 import {
@@ -25,8 +24,14 @@ export interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
-  image: string;
+  price: number;         // SAR
+  previewImage: string;  // URL
+  fileUrl: string;       // Firebase Storage URL to the pre-sliced .gcode / .3mf
+  fileName: string;      // Original filename, e.g. "skull_vase.gcode"
+  material: string;      // PLA, PETG, ABS, ASA, TPU…
+  color: string;         // Default color offered
+  dimensions: string;    // e.g. "120 × 80 × 60 mm"
+  printTimeMin: number;  // Estimated print time in minutes
   category: string;
   stock: number;
   active: boolean;
@@ -36,8 +41,14 @@ export interface Product {
 export interface OrderItem {
   productId: string;
   productName: string;
+  fileUrl: string;
+  fileName: string;
   quantity: number;
   price: number;
+  // per-item print preferences chosen at checkout
+  requestedColor: string;
+  requestedMaterial: string;
+  infillPercent: number;
 }
 
 export interface Order {
@@ -46,7 +57,8 @@ export interface Order {
   customerName: string;
   phone: string;
   deliveryAddress: string;
-  status: string;
+  status: string;        // pending | printing | printed | shipped | delivered | cancelled
+  printStatus: string;   // queued | printing | done | failed
   totalAmount: number;
   notes: string;
   notifiedSnap: boolean;
@@ -90,16 +102,6 @@ export async function getOrders(): Promise<Order[]> {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order));
 }
 
-export async function getUserOrders(userId: string): Promise<Order[]> {
-  const q = query(
-    collection(db, "orders"),
-    where("userId", "==", userId),
-    orderBy("createdAt", "desc")
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Order));
-}
-
 export async function createOrder(data: Omit<Order, "id" | "createdAt">): Promise<string> {
   const ref = await addDoc(collection(db, "orders"), {
     ...data,
@@ -112,7 +114,7 @@ export async function updateOrder(id: string, data: Partial<Omit<Order, "id">>) 
   return updateDoc(doc(db, "orders", id), data);
 }
 
-// ─── Admin Accounts ───────────────────────────────────────────────────────
+// ─── Admin records ────────────────────────────────────────────────────────
 
 export interface AdminRecord {
   id: string;

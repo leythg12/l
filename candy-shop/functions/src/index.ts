@@ -15,6 +15,7 @@
  */
 
 import * as functions from "firebase-functions/v2/https";
+import * as firestoreFns from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as crypto from "crypto";
 
@@ -231,5 +232,61 @@ export const snapchatCallback = functions.onRequest(
     }
 
     res.redirect(returnUrl);
+  }
+);
+
+// ── onOrderCreated — queue print job ─────────────────────────────────────────
+//
+// When a new order document is created in Firestore, this trigger creates a
+// corresponding printJobs document that the local printer-agent watches.
+// The printer-agent (runs on home network) picks up the job, downloads the
+// model file from Firebase Storage, and sends it to the Flashforge M5 over LAN.
+
+export const onOrderCreated = firestoreFns.onDocumentCreated(
+  "orders/{orderId}",
+  async (event) => {
+    const orderId = event.params.orderId;
+    const order = event.data?.data();
+    if (!order) return;
+
+    const items = (order.items as Array<{
+      productId: string;
+      productName: string;
+      fileUrl: string;
+      fileName: string;
+      quantity: number;
+      requestedMaterial: string;
+      requestedColor: string;
+      infillPercent: number;
+    }>).filter((i) => i.fileUrl); // only items with an actual print file
+
+    if (items.length === 0) {
+      console.log(`Order ${orderId} has no printable items, skipping print job.`);
+      return;
+    }
+
+    // Create one print job per item (printer handles one file at a time)
+    const batch = db.batch();
+    for (const item of items) {
+      const jobRef = db.collection("printJobs").doc();
+      batch.set(jobRef, {
+        orderId,
+        customerName: order.customerName,
+        productName: item.productName,
+        fileUrl: item.fileUrl,
+        fileName: item.fileName,
+        quantity: item.quantity,
+        requestedMaterial: item.requestedMaterial,
+        requestedColor: item.requestedColor,
+        infillPercent: item.infillPercent,
+        status: "queued",   // queued | downloading | uploading | printing | done | failed
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        startedAt: null,
+        finishedAt: null,
+        error: null,
+      });
+    }
+    await batch.commit();
+    console.log(`Created ${items.length} print job(s) for order ${orderId}`);
   }
 );

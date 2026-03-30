@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getProducts, getOrders } from "@/lib/firestore";
-import { Package, ShoppingBag, Clock, TrendingUp } from "lucide-react";
+import { Package, ShoppingBag, Clock, TrendingUp, Printer } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-700",
-  confirmed: "bg-blue-100 text-blue-700",
+  printing: "bg-blue-100 text-blue-700",
+  printed: "bg-indigo-100 text-indigo-700",
+  shipped: "bg-purple-100 text-purple-700",
   delivered: "bg-green-100 text-green-700",
   cancelled: "bg-red-100 text-red-700",
 };
@@ -16,9 +18,9 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<{
     totalProducts: number;
     totalOrders: number;
-    pendingOrders: number;
+    printingNow: number;
     totalRevenue: number;
-    recentOrders: { id: string; customerName: string; totalAmount: number; status: string; createdAt: unknown }[];
+    recentOrders: { id: string; customerName: string; totalAmount: number; status: string; printStatus: string; createdAt: unknown }[];
   } | null>(null);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export default function AdminDashboard() {
       setStats({
         totalProducts: products.length,
         totalOrders: orders.length,
-        pendingOrders: orders.filter((o) => o.status === "pending").length,
+        printingNow: orders.filter((o) => o.printStatus === "queued" || o.printStatus === "printing").length,
         totalRevenue: orders
           .filter((o) => o.status !== "cancelled")
           .reduce((s, o) => s + o.totalAmount, 0),
@@ -41,9 +43,9 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: "Products", value: stats?.totalProducts ?? "—", icon: Package, color: "bg-purple-50 text-purple-600", href: "/admin/products/" },
-          { label: "Total Orders", value: stats?.totalOrders ?? "—", icon: ShoppingBag, color: "bg-blue-50 text-blue-600", href: "/admin/orders/" },
-          { label: "Pending", value: stats?.pendingOrders ?? "—", icon: Clock, color: "bg-yellow-50 text-yellow-600", href: "/admin/orders/" },
+          { label: "Models", value: stats?.totalProducts ?? "—", icon: Package, color: "bg-blue-50 text-blue-600", href: "/admin/products/" },
+          { label: "Total Orders", value: stats?.totalOrders ?? "—", icon: ShoppingBag, color: "bg-indigo-50 text-indigo-600", href: "/admin/orders/" },
+          { label: "Print Queue", value: stats?.printingNow ?? "—", icon: Printer, color: "bg-yellow-50 text-yellow-600", href: "/admin/orders/" },
           { label: "Revenue", value: stats ? `${stats.totalRevenue.toFixed(0)} SAR` : "—", icon: TrendingUp, color: "bg-green-50 text-green-600", href: "/admin/orders/" },
         ].map(({ label, value, icon: Icon, color, href }) => (
           <Link key={label} href={href} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-sm transition-shadow">
@@ -59,7 +61,7 @@ export default function AdminDashboard() {
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h2 className="font-semibold text-gray-700">Recent Orders</h2>
-          <Link href="/admin/orders/" className="text-xs text-pink-600 hover:underline">View all</Link>
+          <Link href="/admin/orders/" className="text-xs text-blue-600 hover:underline">View all</Link>
         </div>
 
         {!stats ? (

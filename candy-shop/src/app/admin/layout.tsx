@@ -6,11 +6,11 @@ import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { getAdminByEmail } from "@/lib/firestore";
-import { Package, ShoppingBag, Users, LogOut, LayoutDashboard, Menu, X } from "lucide-react";
+import { Package, ShoppingBag, Users, LogOut, LayoutDashboard, Menu, X, Printer } from "lucide-react";
 
 const NAV = [
   { href: "/admin/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/products/", label: "Products", icon: Package },
+  { href: "/admin/products/", label: "3D Models", icon: Package },
   { href: "/admin/orders/", label: "Orders", icon: ShoppingBag },
   { href: "/admin/admins/", label: "Admins", icon: Users },
 ];
@@ -55,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-8 h-8 border-2 border-pink-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -68,7 +68,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } md:translate-x-0`}
       >
         <div className="p-5 border-b border-gray-100">
-          <Link href="/" className="text-xl font-bold text-pink-600">🍬 CandyShop</Link>
+          <Link href="/" className="flex items-center gap-2 text-xl font-bold text-blue-600">
+            <Printer size={20} /> PrintForge
+          </Link>
           <p className="text-xs text-gray-400 mt-0.5">Admin Panel</p>
         </div>
 
@@ -80,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 isActive(href, exact)
-                  ? "bg-pink-50 text-pink-700"
+                  ? "bg-blue-50 text-blue-700"
                   : "text-gray-600 hover:bg-gray-100"
               }`}
             >
@@ -96,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <p className="text-sm font-semibold text-gray-700 truncate">{admin.name}</p>
               <p className="text-xs text-gray-400 truncate">{admin.email}</p>
               {admin.isSuperAdmin && (
-                <span className="text-xs bg-pink-100 text-pink-700 px-2 py-0.5 rounded-full mt-1 inline-block">
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full mt-1 inline-block">
                   Super Admin
                 </span>
               )}
